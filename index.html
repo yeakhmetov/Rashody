@@ -278,7 +278,7 @@ body.locked .app{visibility:hidden}
         <button class="btn small" id="expJson">Резервная копия JSON</button>
         <button class="btn ghost small" id="impBtn">Загрузить из файла</button>
       </div>
-      <input type="file" id="impFile" accept=".json,.csv,text/csv,application/json" hidden>
+      <input type="file" id="impFile" accept=".json,.csv,.txt,text/csv,text/plain,application/json" hidden>
     </div>
     <div class="card">
       <h2>Анализ</h2>
@@ -679,19 +679,36 @@ function renderStats(){
 
 /* ---------- export / import ---------- */
 let dlNs;const getDl=async()=>{if(dlNs!==undefined)return dlNs;try{dlNs=window.claude&&claude.use?await claude.use('downloads'):null}catch(e){dlNs=null}return dlNs};
-async function download(name,text){
-  const type=name.endsWith('.csv')?'text/csv':'application/json';
-  const blob=new Blob([text],{type});
-  try{const file=new File([blob],name,{type});
-    if(IS_IOS&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:name})}catch(e){}return}
-    if(navigator.canShare&&navigator.canShare({files:[file]})){
-      const choice=await new Promise(res=>{sheet(`<h2>${esc(name)}</h2><p class="muted">Сохранить файл в «Загрузки» или отправить в Telegram, на почту, в Google Диск.</p><div class="btns" style="margin-top:14px"><button class="btn ghost" id="dSave" style="flex:1">Сохранить</button><button class="btn" id="dShare" style="flex:1">Отправить</button></div>`);$('#dSave').onclick=()=>{closeSheet();res('save')};$('#dShare').onclick=()=>{closeSheet();res('share')}});
-      if(choice==='share'){try{await navigator.share({files:[file],title:name});return}catch(e){if(e&&e.name==='AbortError')return}}
-    }
-  }catch(e){}
-  try{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast('Файл сохранён в «Загрузки»');return}catch(e){}
-  sheet(`<h2>Скопируйте данные</h2><p class="muted">Сохранение файла здесь недоступно. Скопируйте текст и вставьте в заметку или файл «${esc(name)}».</p><textarea readonly id="cp">${esc(text.replace(/^\ufeff/,''))}</textarea><button class="btn wide" id="cpBtn">Скопировать</button>`);
-  $('#cpBtn').onclick=async()=>{try{await navigator.clipboard.writeText($('#cp').value);toast('Скопировано')}catch(e){$('#cp').select();toast('Выделите текст и скопируйте вручную')}};
+function saveToDownloads(name,blob){
+  try{const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),4000);toast('Файл сохранён в папку «Загрузки»');return true}catch(e){return false}
+}
+async function saveWithPicker(name,blob,isCsv){
+  // системное окно выбора папки и имени файла (Chrome на Android и ПК)
+  const h=await window.showSaveFilePicker({suggestedName:name,types:[isCsv?{description:'Таблица CSV',accept:{'text/csv':['.csv']}}:{description:'Резервная копия',accept:{'application/json':['.json']}}]});
+  const w=await h.createWritable();await w.write(blob);await w.close();toast('Файл сохранён');
+}
+function shareFiles(name,text,isCsv){
+  // Android пропускает в «Поделиться» не все типы файлов: JSON отправляем как текстовый файл
+  const variants=isCsv?[[name,'text/csv'],[name,'text/plain']]:[[name,'application/json'],[name.replace(/\.json$/,'.json.txt'),'text/plain']];
+  for(const [n,t] of variants){const f=new File([text],n,{type:t});try{if(navigator.canShare&&navigator.canShare({files:[f]}))return f}catch(e){}}
+  return null;
+}
+function download(name,text){
+  const isCsv=name.endsWith('.csv');
+  const blob=new Blob([text],{type:isCsv?'text/csv':'application/json'});
+  const shareFile=navigator.share?shareFiles(name,text,isCsv):null;
+  const canPick=typeof window.showSaveFilePicker==='function';
+  if(IS_IOS&&shareFile){navigator.share({files:[shareFile],title:name}).catch(()=>{});return}
+  sheet(`<h2>${esc(name)}</h2><p class="muted">${canPick?'«Сохранить» откроет окно выбора папки.':'«Сохранить» положит файл в папку «Загрузки».'} «Отправить» откроет меню Android: Telegram, почта, Google Диск и другие.</p>
+   <div class="btns" style="margin-top:14px"><button class="btn ghost" id="dSave" style="flex:1">Сохранить</button><button class="btn" id="dShare" style="flex:1" ${shareFile?'':'disabled'}>Отправить</button></div>
+   ${shareFile?'':'<p class="muted" style="margin-bottom:0">Отправка недоступна в этом браузере. Сохраните файл и отправьте его из «Загрузок».</p>'}`);
+  $('#dSave').onclick=async()=>{closeSheet();
+    if(canPick){try{await saveWithPicker(name,blob,isCsv);return}catch(e){if(e&&e.name==='AbortError')return}}
+    if(!saveToDownloads(name,blob))toast('Не удалось сохранить файл')};
+  $('#dShare').onclick=()=>{if(!shareFile)return;
+    // share вызывается прямо в обработчике нажатия, иначе Android его блокирует
+    navigator.share({files:[shareFile],title:name}).then(()=>closeSheet()).catch(e=>{closeSheet();if(e&&e.name==='AbortError')return;
+      sheet(`<h2>Не удалось открыть меню «Поделиться»</h2><p class="muted">Сохраните файл, а потом отправьте его из папки «Загрузки» через Telegram или Google Диск.</p><button class="btn wide" id="dSave2">Сохранить в «Загрузки»</button>`);$('#dSave2').onclick=()=>{closeSheet();saveToDownloads(name,blob)}})};
 }
 const cell=v=>{v=String(v??'');return/[;"\n\r]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v};
 function toCSV(items){
