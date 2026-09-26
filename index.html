@@ -410,7 +410,7 @@ function onServer(snap){
 function setMode(m){mode='local';const lb=settings.lastBackup;$('#storeState').innerHTML='Все записи хранятся только на этом телефоне и никуда не отправляются. Приложение работает без интернета.<br><br>'+(lb?'Последняя резервная копия: '+ru(lb.slice(0,10))+'.':'Резервной копии ещё не было.')+' Если удалить приложение или очистить данные Chrome, записи пропадут, поэтому раз в месяц сохраняйте копию JSON.'}
 
 /* ---------- lock ---------- */
-let unlocked=false,pinBuf='',hiddenAt=0;
+let unlocked=false,pinBuf='',hiddenAt=0,bioBusy=false,bioTried=false;
 const hasPin=()=>!!(settings.lock&&settings.lock.hash);
 const bioId=()=>lsGet('rsh-bio');
 async function sha(pin,salt){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(salt+':'+pin));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')}
@@ -419,7 +419,7 @@ const unb64=s=>{s=s.replace(/-/g,'+').replace(/_/g,'/');s+='='.repeat((4-s.lengt
 function applyLock(){
   const locked=hasPin()&&!unlocked;
   document.body.classList.toggle('locked',locked);
-  if(locked)drawLock();
+  if(locked){drawLock();if(bioId()&&!bioTried&&!document.hidden){bioTried=true;setTimeout(()=>{if(document.body.classList.contains('locked'))bioUnlock()},250)}}else bioTried=false;
   $('#pinState').textContent=hasPin()?'Установлен ('+settings.lock.len+' цифр)':'Не установлен';
   $('#pinBtn').textContent=hasPin()?'Изменить':'Установить';
   $('#bioState').textContent=bioId()?'Включён на этом устройстве':'Выключен';
@@ -443,18 +443,19 @@ async function checkPin(){
   else{pinBuf='';const d=$('#dots');d.classList.remove('err');void d.offsetWidth;d.classList.add('err');$('#lockMsg').textContent='Неверный PIN, попробуйте ещё раз';drawLock()}
 }
 async function bioUnlock(){
-  const id=bioId();if(!id)return;
+  const id=bioId();if(!id||bioBusy)return;bioBusy=true;
   try{
     await navigator.credentials.get({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),allowCredentials:[{type:'public-key',id:unb64(id)}],userVerification:'required',timeout:60000}});
-    unlocked=true;applyLock();renderAll();
-  }catch(e){$('#lockMsg').textContent='Отпечаток не сработал здесь, введите PIN'}
+    unlocked=true;pinBuf='';applyLock();renderAll();
+  }catch(e){$('#lockMsg').textContent='Нажмите «'+(typeof IS_IOS!=='undefined'&&IS_IOS?'Face ID':'Отпечаток')+'», чтобы повторить, или введите PIN'}
+  finally{bioBusy=false}
 }
 document.addEventListener('visibilitychange',()=>{
   if(document.hidden)hiddenAt=Date.now();
-  else{const sec=Number(settings.autoLock??60);if(hasPin()&&unlocked&&sec>=0&&Date.now()-hiddenAt>=sec*1000){unlocked=false;pinBuf='';$('#lockMsg').textContent='Введите PIN-код';applyLock()}}
+  else{if(document.body.classList.contains('locked')&&!bioBusy){bioTried=false;applyLock()}const sec=Number(settings.autoLock??60);if(hasPin()&&unlocked&&sec>=0&&Date.now()-hiddenAt>=sec*1000){unlocked=false;pinBuf='';$('#lockMsg').textContent='Введите PIN-код';applyLock()}}
 });
 $('#autoLock').onchange=e=>{settings.autoLock=Number(e.target.value);touch('settings');toast('Автоблокировка: '+e.target.selectedOptions[0].textContent.toLowerCase())};
-$('#lockNow').onclick=()=>{unlocked=false;$('#lockMsg').textContent='Введите PIN-код';applyLock()};
+$('#lockNow').onclick=()=>{unlocked=false;bioTried=true;$('#lockMsg').textContent='Введите PIN-код';applyLock()};
 $('#pinBtn').onclick=()=>{
   sheet(`<h2>${hasPin()?'Новый PIN-код':'Установить PIN-код'}</h2><p class="muted">От 4 до 6 цифр. Запомните его: если забыть PIN, войти можно будет только очистив данные приложения и восстановив записи из резервной копии JSON.</p>
   <label class="field"><span class="label">PIN</span><input id="p1" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
