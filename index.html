@@ -9,7 +9,11 @@
 <meta name="description" content="Учёт ежедневных расходов, работает без интернета">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Расходы">
+<meta name="format-detection" content="telephone=no">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700&family=Unbounded:wght@500;700&display=swap" rel="stylesheet">
@@ -329,6 +333,7 @@ const G=Object.fromEntries(GROUPS.map(g=>[g.id,g]));
 const subsOf=id=>[...(G[id]?.s||[]),...((settings.customSubs||{})[id]||[])];
 
 /* ---------- helpers ---------- */
+const IS_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>Math.round(n).toLocaleString('ru-RU')+' ₸';
@@ -426,7 +431,7 @@ function drawLock(){
   $('#dots').innerHTML=Array.from({length:n},(_,i)=>`<i class="${i<pinBuf.length?'f':''}"></i>`).join('');
   if(!$('#pad').children.length){
     const keys=['1','2','3','4','5','6','7','8','9','bio','0','del'];
-    $('#pad').innerHTML=keys.map(k=>k==='bio'?`<button class="nb" data-k="bio" id="bioKey">Отпечаток</button>`:k==='del'?`<button class="nb" data-k="del" aria-label="Стереть">Стереть</button>`:`<button data-k="${k}">${k}</button>`).join('');
+    $('#pad').innerHTML=keys.map(k=>k==='bio'?`<button class="nb" data-k="bio" id="bioKey">${IS_IOS?'Face ID':'Отпечаток'}</button>`:k==='del'?`<button class="nb" data-k="del" aria-label="Стереть">Стереть</button>`:`<button data-k="${k}">${k}</button>`).join('');
     $('#pad').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;const k=b.dataset.k;if(k==='del')pinBuf=pinBuf.slice(0,-1);else if(k==='bio'){bioUnlock();return}else if(pinBuf.length<(settings.lock.len||4))pinBuf+=k;drawLock();if(pinBuf.length===(settings.lock.len||4))checkPin()});
     document.addEventListener('keydown',e=>{if(!document.body.classList.contains('locked'))return;if(/^\d$/.test(e.key)&&pinBuf.length<settings.lock.len){pinBuf+=e.key;drawLock();if(pinBuf.length===settings.lock.len)checkPin()}else if(e.key==='Backspace'){pinBuf=pinBuf.slice(0,-1);drawLock()}});
   }
@@ -467,7 +472,7 @@ $('#bioBtn').onclick=async()=>{
     if(PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable&&!(await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()))throw 0;
     const cred=await navigator.credentials.create({publicKey:{challenge:crypto.getRandomValues(new Uint8Array(32)),rp:{name:'Расходы'},user:{id:crypto.getRandomValues(new Uint8Array(16)),name:'owner',displayName:'Владелец'},pubKeyCredParams:[{type:'public-key',alg:-7},{type:'public-key',alg:-257}],authenticatorSelection:{authenticatorAttachment:'platform',userVerification:'required',residentKey:'discouraged'},timeout:60000}});
     lsSet('rsh-bio',b64(cred.rawId));applyLock();toast('Отпечаток включён');
-  }catch(e){sheet(`<h2>Отпечаток здесь недоступен</h2><p class="muted">Телефон не дал доступ к биометрии. Проверьте, что в настройках Android добавлен отпечаток пальца и что приложение установлено из Chrome. PIN-код продолжает защищать приложение.</p><button class="btn wide" onclick="closeSheet()">Понятно</button>`)}
+  }catch(e){sheet(`<h2>Отпечаток здесь недоступен</h2><p class="muted">Телефон не дал доступ к биометрии. Проверьте, что на телефоне настроены отпечаток пальца или Face ID и что приложение установлено на главный экран. PIN-код продолжает защищать приложение.</p><button class="btn wide" onclick="closeSheet()">Понятно</button>`)}
 };
 
 /* ---------- add / edit ---------- */
@@ -678,6 +683,7 @@ async function download(name,text){
   const type=name.endsWith('.csv')?'text/csv':'application/json';
   const blob=new Blob([text],{type});
   try{const file=new File([blob],name,{type});
+    if(IS_IOS&&navigator.canShare&&navigator.canShare({files:[file]})){try{await navigator.share({files:[file],title:name})}catch(e){}return}
     if(navigator.canShare&&navigator.canShare({files:[file]})){
       const choice=await new Promise(res=>{sheet(`<h2>${esc(name)}</h2><p class="muted">Сохранить файл в «Загрузки» или отправить в Telegram, на почту, в Google Диск.</p><div class="btns" style="margin-top:14px"><button class="btn ghost" id="dSave" style="flex:1">Сохранить</button><button class="btn" id="dShare" style="flex:1">Отправить</button></div>`);$('#dSave').onclick=()=>{closeSheet();res('save')};$('#dShare').onclick=()=>{closeSheet();res('share')}});
       if(choice==='share'){try{await navigator.share({files:[file],title:name});return}catch(e){if(e&&e.name==='AbortError')return}}
