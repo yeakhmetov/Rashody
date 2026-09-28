@@ -169,7 +169,7 @@ nav.tabs button[aria-selected="true"]{color:var(--accent);font-weight:600}
 #lock{position:fixed;inset:0;z-index:50;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;padding:calc(24px + env(safe-area-inset-top,0px)) 24px calc(24px + env(safe-area-inset-bottom,0px))}
 body.locked #lock{display:flex}
 body.locked .app,html.prelock .app,html.cloak .app{visibility:hidden}
-html.prelock #lock{display:flex}
+html.prelock #lock,html.cloak #lock{display:flex}
 #lock h1{font:700 22px var(--display);margin:0 0 6px}
 .dots{display:flex;gap:12px;margin:20px 0 26px}
 .dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--ink)}
@@ -300,7 +300,7 @@ html.prelock #lock{display:flex}
       <h2>Хранение</h2>
       <p class="muted" id="storeState" style="margin-top:0"></p>
       <button class="btn danger small" id="wipe">Удалить все записи</button>
-      <p class="muted" style="margin:14px 0 0">Версия приложения: 27.09.2026 (9)</p>
+      <p class="muted" style="margin:14px 0 0">Версия приложения: 27.09.2026 (10)</p>
     </div>
   </section>
 </main>
@@ -461,9 +461,15 @@ async function bioUnlock(){
   finally{bioBusy=false}
 }
 document.addEventListener('visibilitychange',()=>{
-  if(document.hidden){hiddenAt=Date.now();if(hasPin()&&Number(settings.autoLock??60)>=0)document.documentElement.classList.add('cloak')}
+  if(document.hidden){hiddenAt=Date.now();cloakOn()}
   else{if(document.body.classList.contains('locked')&&!bioBusy){bioTried=false;applyLock()}const sec=Number(settings.autoLock??60);if(hasPin()&&unlocked&&sec>=0&&Date.now()-hiddenAt>=sec*1000){unlocked=false;pinBuf='';$('#lockMsg').textContent='Введите PIN-код';applyLock()}document.documentElement.classList.remove('cloak')}
 });
+/* скрытие содержимого в списке открытых приложений */
+function cloakOn(){if(hasPin()&&Number(settings.autoLock??60)>=0)document.documentElement.classList.add('cloak')}
+window.addEventListener('blur',()=>{const a=document.activeElement;if(bioBusy||(a&&/^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName)))return;cloakOn()});
+window.addEventListener('focus',()=>{if(!document.hidden)document.documentElement.classList.remove('cloak')});
+window.addEventListener('pagehide',cloakOn);
+document.addEventListener('freeze',cloakOn);
 $('#autoLock').onchange=e=>{settings.autoLock=Number(e.target.value);touch('settings');toast('Автоблокировка: '+e.target.selectedOptions[0].textContent.toLowerCase())};
 $('#lockNow').onclick=()=>{unlocked=false;bioTried=true;$('#lockMsg').textContent='Введите PIN-код';applyLock()};
 $('#pinBtn').onclick=()=>{
