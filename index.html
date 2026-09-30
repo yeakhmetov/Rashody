@@ -310,7 +310,8 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <h2>Хранение</h2>
       <p class="muted" id="storeState" style="margin-top:0"></p>
       <button class="btn danger small" id="wipe">Удалить все записи</button>
-      <p class="muted" style="margin:14px 0 0">Версия приложения: 27.09.2026 (11)</p>
+      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>27.09.2026 (12)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
+      <p class="muted" style="margin:6px 0 0">«Обновить» загружает свежую версию с сервера. Записи при этом не затрагиваются.</p>
     </div>
   </section>
 </main>
@@ -945,7 +946,21 @@ resetForm();
 if(_draft&&(_draft.a||_draft.g||_draft.c)){$('#amt').value=_draft.a||'';$('#fComment').value=_draft.c||'';$('#fProject').value=_draft.p||'';if(_draft.d)$('#fDate').value=_draft.d;form={g:G[_draft.g]?_draft.g:null,s:_draft.s||null};drawGroups()}
 setMode('local');go(TITLES.hasOwnProperty(_scr)?_scr:'home');renderAll();
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
-if('serviceWorker' in navigator&&location.protocol!=='file:')navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).catch(()=>{});
+if('serviceWorker' in navigator&&location.protocol!=='file:'){
+  let hadCtrl=!!navigator.serviceWorker.controller,reloaded=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!hadCtrl){hadCtrl=true;return}if(reloaded)return;reloaded=true;
+    const busy=$('#sheetBg').classList.contains('on')||$('#s-add').classList.contains('on')||document.body.classList.contains('selmode');
+    if(busy)toast('Загружена новая версия, она откроется при следующем запуске');else location.reload();
+  });
+  navigator.serviceWorker.register('sw.js',{updateViaCache:'none'}).then(r=>{r.update().catch(()=>{});document.addEventListener('visibilitychange',()=>{if(!document.hidden)r.update().catch(()=>{})})}).catch(()=>{});
+}
+$('#updBtn').onclick=async()=>{
+  if(!navigator.onLine)return toast('Для обновления нужен интернет');
+  toast('Проверяю обновление…');
+  try{const r=navigator.serviceWorker&&await navigator.serviceWorker.getRegistration();if(r)await r.update();if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)))}}catch(e){}
+  setTimeout(()=>location.reload(),400);
+};
 (()=>{const n=allItems().length,lb=settings.lastBackup;if(n>30&&(!lb||Date.now()-new Date(lb)>30*864e5))setTimeout(()=>toast('Пора сделать резервную копию: Настройки → Резервная копия JSON'),1500)})();
 </script>
 </body>
