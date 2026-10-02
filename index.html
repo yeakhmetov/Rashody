@@ -50,8 +50,15 @@ h2{font:600 16px/1.3 var(--body);margin:0 0 10px}
 .amount{display:flex;align-items:baseline;gap:8px;border-bottom:2px solid var(--accent);padding-bottom:6px}
 .amount input{flex:1;min-width:0;border:0;background:none;outline:none;font:700 34px/1.1 var(--display);letter-spacing:-.02em;padding:0}
 .amount span{font:500 24px var(--display);color:var(--muted)}
-.recent{display:flex;gap:6px;overflow-x:auto;margin-top:12px;padding-bottom:2px}
-.recent button{flex:none;border:1px dashed var(--line);background:none;border-radius:999px;padding:6px 11px;font-size:13px;color:var(--muted)}
+.amount input.long{font-size:24px}
+.calc-res{min-height:20px;text-align:right;font-size:14px;color:var(--muted);margin-top:4px}
+.calc-res.err{color:var(--warn)}
+.calc{display:grid;grid-template-columns:repeat(8,1fr);gap:5px;margin-top:6px}
+.calc button{height:40px;border-radius:10px;border:1px solid var(--line);background:var(--bg);font:500 19px var(--body);color:var(--ink);padding:0;touch-action:manipulation}
+.calc button.eq{background:var(--soft);border-color:var(--accent);font-weight:700}
+.calc button:active{background:var(--soft)}
+.recent{display:flex;flex-wrap:wrap;gap:6px}
+.recent button{flex:none;border:1px solid var(--line);background:var(--bg);border-radius:999px;padding:7px 11px;font-size:13.5px;color:var(--ink)}
 .recent button[aria-pressed="true"]{border:1px solid var(--accent);background:var(--soft);color:var(--ink);font-weight:600}
 .groups{display:grid;grid-template-columns:repeat(auto-fill,minmax(98px,1fr));gap:7px}
 .g{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:9px 6px;text-align:center;font-size:12.5px;line-height:1.2;min-height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px}
@@ -222,7 +229,9 @@ html.prelock #lock,html.cloak #lock{display:flex}
   <section class="screen" id="s-add">
     <div class="card">
       <div class="amount"><input id="amt" class="num" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Сумма"><span>₸</span></div>
-      <div class="recent" id="recent"></div>
+      <div class="calc-res num" id="calcRes"></div>
+      <div class="calc" id="calc"><button data-op="+">+</button><button data-op="−">−</button><button data-op="×">×</button><button data-op="÷">÷</button><button data-op="(">(</button><button data-op=")">)</button><button data-op="=" class="eq">=</button><button data-op="⌫" aria-label="Стереть">⌫</button></div>
+      <div id="recentWrap"><p class="label" style="margin:12px 0 6px">Часто используемые</p><div class="recent" id="recent"></div></div>
     </div>
     <div class="card">
       <p class="label">Группа</p>
@@ -310,7 +319,7 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <h2>Хранение</h2>
       <p class="muted" id="storeState" style="margin-top:0"></p>
       <button class="btn danger small" id="wipe">Удалить все записи</button>
-      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>27.09.2026 (12)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
+      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>27.09.2026 (14)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
       <p class="muted" style="margin:6px 0 0">«Обновить» загружает свежую версию с сервера. Записи при этом не затрагиваются.</p>
     </div>
   </section>
@@ -529,7 +538,7 @@ $('#eyeBtn').onclick=()=>{if(hideAmt)authReveal();else setHide(true)};
 /* ---------- add / edit ---------- */
 let form={g:null,s:null},editing=null;
 function resetForm(keepDate){
-  $('#amt').value='';$('#fComment').value='';$('#fProject').value='';
+  $('#amt').value='';$('#amt').classList.remove('long');$('#calcRes').textContent='';$('#fComment').value='';$('#fProject').value='';
   if(!keepDate){$('#fDate').value=ymd(new Date())}
   const n=new Date();$('#fTime').value=pad2(n.getHours())+':'+pad2(n.getMinutes());
   form={g:null,s:null};editing=null;
@@ -552,10 +561,40 @@ $('#subs').addEventListener('click',e=>{const b=e.target.closest('button');if(!b
   form.s=b.dataset.s;drawSubs()});
 ['#fComment','#fProject','#fDate'].forEach(id=>$(id).addEventListener('input',saveDraft));
 function parseAmt(v){v=String(v).replace(/\s|\u00a0/g,'').replace(',','.');const n=Number(v);return isFinite(n)?Math.round(n*100)/100:NaN}
-$('#amt').addEventListener('input',e=>{const raw=e.target.value.replace(/[^\d.,]/g,'');const [i,f]=raw.split(/[.,]/);const int=(i||'').replace(/^0+(?=\d)/,'').replace(/\B(?=(\d{3})+(?!\d))/g,' ');e.target.value=int+(f!==undefined?','+f.slice(0,2):'');saveDraft()});
+/* ---------- калькулятор в поле суммы ---------- */
+function fmtNumTok(t){t=t.replace(/\s/g,'');const k=t.search(/[.,]/);let i=k<0?t:t.slice(0,k),f=k<0?undefined:t.slice(k+1).replace(/[.,]/g,'');i=i.replace(/^0+(?=\d)/,'').replace(/\B(?=(\d{3})+(?!\d))/g,' ');return i+(f!==undefined?','+f.slice(0,2):'')}
+function fmtExpr(v){v=v.replace(/\*/g,'×').replace(/[\/:]/g,'÷').replace(/[-–—]/g,'−').replace(/[xXхХ]/g,'×').replace(/[^\d.,+−×÷()]/g,'');return v.replace(/[\d.,]+/g,fmtNumTok)}
+function evalAmt(v){
+  const src=String(v).replace(/\s|\u00a0/g,'').replace(/,/g,'.');if(!src)return NaN;
+  const tk=src.match(/\d*\.?\d+|\d+\.|[+−×÷()]/g);if(!tk||tk.join('')!==src)return NaN;let i=0;
+  const num=()=>{const t=tk[i];if(t===undefined)throw 0;if(t==='('){i++;const r=expr();if(tk[i++]!==')')throw 0;return r}if(t==='−'){i++;return-num()}if(t==='+'){i++;return num()}if(/^[\d.]/.test(t)){i++;return parseFloat(t)}throw 0};
+  const term=()=>{let r=num();while(tk[i]==='×'||tk[i]==='÷'){const op=tk[i++],b=num();if(op==='÷'){if(b===0)throw 0;r/=b}else r*=b}return r};
+  const expr=()=>{let r=term();while(tk[i]==='+'||tk[i]==='−'){const op=tk[i++],b=term();r=op==='+'?r+b:r-b}return r};
+  try{const r=expr();if(i!==tk.length||!isFinite(r))return NaN;return Math.round(r*100)/100}catch(e){return NaN}
+}
+const plainNum=n=>(Math.round(n*100)/100).toLocaleString('ru-RU',{maximumFractionDigits:2}).replace(/\u00a0/g,' ');
+function setAmt(v,caretSig){
+  const el=$('#amt');el.value=fmtExpr(v);
+  if(caretSig!=null&&document.activeElement===el){let c=0,pos=el.value.length;for(let k=0;k<el.value.length;k++){if(c===caretSig){pos=k;break}if(el.value[k]!==' ')c++}if(c===caretSig&&pos===el.value.length)pos=el.value.length;try{el.setSelectionRange(pos,pos)}catch(e){}}
+  el.classList.toggle('long',el.value.length>11);calcPreview();saveDraft();
+}
+function calcPreview(){
+  const v=$('#amt').value,r=$('#calcRes');
+  if(!/[+−×÷()]/.test(v.replace(/^−/,''))){r.textContent='';r.classList.remove('err');return}
+  const n=evalAmt(v);r.classList.toggle('err',!isFinite(n));r.textContent=isFinite(n)?'= '+plainNum(n)+' ₸':'Выражение не закончено';
+}
+const sigBefore=(el)=>{const p=el.selectionStart??el.value.length;return el.value.slice(0,p).replace(/ /g,'').length};
+$('#amt').addEventListener('input',e=>setAmt(e.target.value,sigBefore(e.target)));
+$('#calc').addEventListener('pointerdown',e=>{if(e.target.closest('button'))e.preventDefault()});
+$('#calc').addEventListener('click',e=>{const b=e.target.closest('[data-op]');if(!b)return;const el=$('#amt'),op=b.dataset.op;
+  const st0=el.selectionStart??el.value.length,en0=el.selectionEnd??el.value.length,v=el.value;
+  if(op==='='){const n=evalAmt(v);if(isFinite(n)&&n>0)setAmt(String(n).replace('.',','),null);else toast('Проверьте выражение');return}
+  if(op==='⌫'){if(st0!==en0){setAmt(v.slice(0,st0)+v.slice(en0),v.slice(0,st0).replace(/ /g,'').length)}else if(st0>0){let a=st0-1;while(a>0&&v[a]===' ')a--;setAmt(v.slice(0,a)+v.slice(st0),v.slice(0,a).replace(/ /g,'').length)}return}
+  const nv=v.slice(0,st0)+op+v.slice(en0);setAmt(nv,(v.slice(0,st0)+op).replace(/ /g,'').length);
+});
 $('#saveBtn').onclick=()=>{
-  const a=parseAmt($('#amt').value);
-  if(!(a>0))return toast('Введите сумму');
+  const a=evalAmt($('#amt').value);
+  if(!(a>0))return toast(/[+−×÷()]/.test($('#amt').value)?'Проверьте выражение в сумме':'Введите сумму');
   if(!form.g)return toast('Выберите группу');
   const d=$('#fDate').value||ymd(new Date());
   const it={id:editing?editing.id:uid(),d,t:$('#fTime').value||'',a,g:form.g,s:form.s||'',c:$('#fComment').value.trim(),p:$('#fProject').value.trim(),ts:editing?editing.ts:Date.now()};
@@ -572,7 +611,7 @@ $('#saveBtn').onclick=()=>{
 function editItem(id){
   const it=allItems().find(x=>x.id===id);if(!it)return;
   editing=it;form={g:it.g,s:it.s};
-  $('#amt').value=String(it.a).replace('.',',');$('#amt').dispatchEvent(new Event('input'));
+  setAmt(String(it.a).replace('.',','),null);
   $('#fDate').value=it.d;$('#fTime').value=it.t||'';$('#fComment').value=it.c||'';$('#fProject').value=it.p||'';
   $('#editBtns').hidden=false;$('#saveBtn').textContent='Сохранить изменения';
   drawGroups();go('add');$('#title').textContent='Правка траты';
@@ -580,10 +619,14 @@ function editItem(id){
 $('#cancelEdit').onclick=()=>{resetForm();go('list')};
 $('#delBtn').onclick=async()=>{if(!editing)return;if(!(await ask('Удалить эту трату?','Удалить',true)))return;const k=editing.d.slice(0,7);months[k]=(months[k]||[]).filter(x=>x.id!==editing.id);touch(k);resetForm();renderAll();go('list');toast('Трата удалена')};
 function drawRecent(){
-  const seen=new Set(),out=[];
-  for(const it of allItems()){const key=it.g+'|'+it.s;if(seen.has(key))continue;seen.add(key);out.push(it);if(out.length>=6)break}
+  // самые частые сочетания «группа + категория» за последние 90 дней
+  const since=addDays(ymd(new Date()),-90),cnt={},last={};
+  for(const it of allItems()){if(!G[it.g])continue;const key=it.g+'|'+it.s;if(!last[key])last[key]=it;if(it.d>=since)cnt[key]=(cnt[key]||0)+1}
+  let keys=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
+  if(keys.length<6)keys=keys.concat(Object.keys(last).filter(k=>!cnt[k]));
+  const out=keys.slice(0,6).map(k=>last[k]);
   $('#recent').innerHTML=out.map(it=>`<button data-g="${it.g}" data-s="${esc(it.s)}">${G[it.g]?.e||''} ${esc(it.s||G[it.g]?.n)}</button>`).join('');
-  $('#recent').hidden=!out.length;markRecent();
+  $('#recentWrap').hidden=!out.length;markRecent();
 }
 function markRecent(){document.querySelectorAll('#recent button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.g===form.g&&(b.dataset.s||'')===(form.s||''))))}
 $('#recent').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;form={g:b.dataset.g,s:b.dataset.s||null};drawGroups()});
@@ -943,7 +986,7 @@ function renderAll(){
 let _draft=null,_scr='home';try{_draft=JSON.parse(sessionStorage.getItem('rsh-draft')||'null');_scr=sessionStorage.getItem('rsh-screen')||'home'}catch(e){}
 rebuildCats();drawEye();
 resetForm();
-if(_draft&&(_draft.a||_draft.g||_draft.c)){$('#amt').value=_draft.a||'';$('#fComment').value=_draft.c||'';$('#fProject').value=_draft.p||'';if(_draft.d)$('#fDate').value=_draft.d;form={g:G[_draft.g]?_draft.g:null,s:_draft.s||null};drawGroups()}
+if(_draft&&(_draft.a||_draft.g||_draft.c)){setAmt(_draft.a||'',null);$('#fComment').value=_draft.c||'';$('#fProject').value=_draft.p||'';if(_draft.d)$('#fDate').value=_draft.d;form={g:G[_draft.g]?_draft.g:null,s:_draft.s||null};drawGroups()}
 setMode('local');go(TITLES.hasOwnProperty(_scr)?_scr:'home');renderAll();
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if('serviceWorker' in navigator&&location.protocol!=='file:'){
