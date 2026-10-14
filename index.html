@@ -319,7 +319,7 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <h2>Хранение</h2>
       <p class="muted" id="storeState" style="margin-top:0"></p>
       <button class="btn danger small" id="wipe">Удалить все записи</button>
-      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>27.09.2026 (14)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
+      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>15.10.2026 (15)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
       <p class="muted" style="margin:6px 0 0">«Обновить» загружает свежую версию с сервера. Записи при этом не затрагиваются.</p>
     </div>
   </section>
@@ -390,8 +390,10 @@ const lsDel=k=>{try{localStorage.removeItem(k)}catch(e){}};
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),2200)}
 function sheet(html){$('#sheet').innerHTML=html;$('#sheetBg').classList.add('on')}
 function closeSheet(){$('#sheetBg').classList.remove('on')}
+function cancelSheet(){if(askRes){const r=askRes;askRes=null;r(false)}closeSheet()}
 $('#sheetBg').addEventListener('click',e=>{if(e.target.id==='sheetBg')closeSheet()});
-function ask(text,ok='Да',danger){return new Promise(res=>{sheet(`<h2>${esc(text)}</h2><div class="btns" style="margin-top:14px"><button class="btn ghost" id="aNo" style="flex:1">Отмена</button><button class="btn ${danger?'danger':''}" id="aYes" style="flex:1">${esc(ok)}</button></div>`);$('#aNo').onclick=()=>{closeSheet();res(false)};$('#aYes').onclick=()=>{closeSheet();res(true)}})}
+let askRes=null;
+function ask(text,ok='Да',danger){return new Promise(res=>{askRes=res;sheet(`<h2>${esc(text)}</h2><div class="btns" style="margin-top:14px"><button class="btn ghost" id="aNo" style="flex:1">Отмена</button><button class="btn ${danger?'danger':''}" id="aYes" style="flex:1">${esc(ok)}</button></div>`);$('#aNo').onclick=()=>{closeSheet();res(false)};$('#aYes').onclick=()=>{closeSheet();res(true)}})}
 
 /* ---------- state & storage ---------- */
 const defaults=()=>({autoLock:60,bigThreshold:300000,customSubs:{},projects:[],lock:null});
@@ -689,7 +691,7 @@ $('#modes').innerHTML=MODES.map(([k,n])=>`<button data-m="${k}">${n}</button>`).
 $('#periods').addEventListener('click',e=>{const b=e.target.closest('[data-p]');if(!b)return;st.period=b.dataset.p;if(st.period==='custom'&&!st.from){const r=range('month');st.from=r[0];st.to=r[1];$('#from').value=st.from;$('#to').value=st.to}renderStats()});
 $('#modes').addEventListener('click',e=>{const b=e.target.closest('[data-m]');if(!b)return;st.mode=b.dataset.m;renderStats()});
 $('#fg').onchange=e=>{st.g=e.target.value;st.s='';renderStats()};
-$('#fs').onchange=e=>{st.s=e.target.value;renderStats()};
+$('#fs').onchange=e=>{const v=e.target.value;if(!v){st.s=''}else{const k=v.indexOf('|');st.g=v.slice(0,k);st.s=v.slice(k+1)}renderStats()};
 $('#fp').onchange=e=>{st.p=e.target.value;renderStats()};
 $('#ft').oninput=e=>{st.t=e.target.value.trim().toLowerCase();renderStats()};
 $('#from').onchange=e=>{st.from=e.target.value;renderStats()};
@@ -727,8 +729,9 @@ function renderStats(){
   document.querySelectorAll('#modes [data-m]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===st.mode));
   $('#customRange').hidden=st.period!=='custom';
   $('#fg').innerHTML='<option value="">Все группы</option>'+GROUPS.map(g=>`<option value="${g.id}" ${st.g===g.id?'selected':''}>${esc(g.n)}</option>`).join('');
-  $('#fs').innerHTML='<option value="">Все категории</option>'+(st.g?subsOf(st.g):[]).map(s=>`<option ${st.s===s?'selected':''}>${esc(s)}</option>`).join('');
-  $('#fs').disabled=!st.g;
+  const subOpt=g=>subsOf(g.id).map(x=>`<option value="${esc(g.id+'|'+x)}" ${st.g===g.id&&st.s===x?'selected':''}>${esc(x)}</option>`).join('');
+  $('#fs').innerHTML='<option value="">Все категории</option>'+(st.g&&G[st.g]?subOpt(G[st.g]):GROUPS.filter(g=>subsOf(g.id).length).map(g=>`<optgroup label="${esc(g.e+' '+g.n)}">${subOpt(g)}</optgroup>`).join(''));
+  $('#fs').disabled=false;
   $('#fp').innerHTML=`<option value="">Все</option><option value="__none" ${st.p==='__none'?'selected':''}>Без проекта</option>`+settings.projects.map(p=>`<option ${st.p===p?'selected':''}>${esc(p)}</option>`).join('');
   const [a,b]=range(st.period);
   const all=allItems();
@@ -853,8 +856,11 @@ $('#thr').onchange=e=>{const n=parseAmt(e.target.value);if(n>0){settings.bigThre
 /* ---------- nav & render ---------- */
 const MONTHS_NOM=['Январь','Февраль','Март','Апрель','Май','Июнь','Июль','Август','Сентябрь','Октябрь','Ноябрь','Декабрь'];
 const TITLES={home:'',add:'Новая трата',list:'История',stats:'Анализ',set:'Настройки'};
-function go(s){
+let curScr='home';const navStack=[];
+function go(s,fromBack){
   if(selMode)exitSel();
+  if(!fromBack&&s!==curScr){if(s==='home')navStack.length=0;else{navStack.push(curScr);if(navStack.length>30)navStack.shift()}}
+  curScr=s;
   document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id==='s-'+s));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.s===s));
   $('#title').textContent=s==='add'&&editing?'Правка траты':s==='home'?MONTHS_NOM[new Date().getMonth()]+' '+new Date().getFullYear():TITLES[s];
@@ -988,6 +994,28 @@ rebuildCats();drawEye();
 resetForm();
 if(_draft&&(_draft.a||_draft.g||_draft.c)){setAmt(_draft.a||'',null);$('#fComment').value=_draft.c||'';$('#fProject').value=_draft.p||'';if(_draft.d)$('#fDate').value=_draft.d;form={g:G[_draft.g]?_draft.g:null,s:_draft.s||null};drawGroups()}
 setMode('local');go(TITLES.hasOwnProperty(_scr)?_scr:'home');renderAll();
+/* ---------- системная кнопка «назад» ---------- */
+let backAt=0,exiting=false;
+try{history.replaceState({rshBase:1},'');history.pushState({rshGuard:1},'')}catch(e){}
+window.addEventListener('popstate',()=>{
+  if(exiting){history.back();setTimeout(()=>{try{window.close()}catch(e){}},300);return}
+  try{history.pushState({rshGuard:1},'')}catch(e){}
+  if(document.body.classList.contains('locked'))return askExit();
+  if($('#sheetBg').classList.contains('on')){cancelSheet();return}
+  if(selMode){exitSel();return}
+  if(curScr==='add'&&editing){resetForm();}
+  if(navStack.length){go(navStack.pop(),true);return}
+  if(curScr!=='home'){go('home',true);return}
+  const now=Date.now();
+  if(now-backAt<2000){backAt=0;askExit();return}
+  backAt=now;toast('Нажмите «назад» ещё раз, чтобы закрыть приложение');
+});
+async function askExit(){
+  const lk=document.body.classList.contains('locked');if(lk)document.body.classList.remove('locked');
+  const ok=await ask('Закрыть приложение?','Закрыть');
+  if(lk)applyLock();
+  if(ok){exiting=true;history.back()}
+}
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if('serviceWorker' in navigator&&location.protocol!=='file:'){
   let hadCtrl=!!navigator.serviceWorker.controller,reloaded=false;
