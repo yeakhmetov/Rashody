@@ -1,6 +1,6 @@
 // Офлайн-режим: приложение открывается мгновенно из копии на телефоне.
 // Свежая версия проверяется в фоне; когда она скачана, приложение перезапускается само.
-const VERSION='rashody-v13';
+const VERSION='rashody-v14';
 const CORE=['./','./index.html','./manifest.webmanifest','./icon-192.png','./icon-512.png','./icon-192-maskable.png','./icon-512-maskable.png','./apple-touch-icon.png'];
 self.addEventListener('install',e=>{e.waitUntil(caches.open(VERSION).then(c=>c.addAll(CORE.map(u=>new Request(u,{cache:'reload'})))).then(()=>self.skipWaiting()))});
 self.addEventListener('activate',e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==VERSION).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});

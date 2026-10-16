@@ -319,7 +319,7 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <h2>Хранение</h2>
       <p class="muted" id="storeState" style="margin-top:0"></p>
       <button class="btn danger small" id="wipe">Удалить все записи</button>
-      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>15.10.2026 (15)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
+      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>16.10.2026 (16)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
       <p class="muted" style="margin:6px 0 0">«Обновить» загружает свежую версию с сервера. Записи при этом не затрагиваются.</p>
     </div>
   </section>
@@ -995,11 +995,22 @@ resetForm();
 if(_draft&&(_draft.a||_draft.g||_draft.c)){setAmt(_draft.a||'',null);$('#fComment').value=_draft.c||'';$('#fProject').value=_draft.p||'';if(_draft.d)$('#fDate').value=_draft.d;form={g:G[_draft.g]?_draft.g:null,s:_draft.s||null};drawGroups()}
 setMode('local');go(TITLES.hasOwnProperty(_scr)?_scr:'home');renderAll();
 /* ---------- системная кнопка «назад» ---------- */
+// Chrome на Android пропускает записи истории, добавленные без касания экрана,
+// поэтому «запас» для кнопки «назад» пополняется только сразу после касания пользователя.
 let backAt=0,exiting=false;
-try{history.replaceState({rshBase:1},'');history.pushState({rshGuard:1},'')}catch(e){}
+const histIdx=()=>{const s=history.state;return s&&typeof s.rsh==='number'?s.rsh:0};
+try{if(!history.state||typeof history.state.rsh!=='number')history.replaceState({rsh:0},'')}catch(e){}
+let hIdx=histIdx();
+function armBack(){
+  if(exiting)return;
+  const need=Math.min(navStack.length+3,20);
+  try{while(hIdx<need){hIdx++;history.pushState({rsh:hIdx},'')}}catch(e){}
+}
+armBack();
+['pointerdown','pointerup','click','keydown','touchend'].forEach(t=>document.addEventListener(t,()=>{armBack();setTimeout(armBack,0)},true));
 window.addEventListener('popstate',()=>{
-  if(exiting){history.back();setTimeout(()=>{try{window.close()}catch(e){}},300);return}
-  try{history.pushState({rshGuard:1},'')}catch(e){}
+  hIdx=histIdx();
+  if(exiting){history.back();return}
   if(document.body.classList.contains('locked'))return askExit();
   if($('#sheetBg').classList.contains('on')){cancelSheet();return}
   if(selMode){exitSel();return}
@@ -1007,14 +1018,14 @@ window.addEventListener('popstate',()=>{
   if(navStack.length){go(navStack.pop(),true);return}
   if(curScr!=='home'){go('home',true);return}
   const now=Date.now();
-  if(now-backAt<2000){backAt=0;askExit();return}
+  if(now-backAt<2500){backAt=0;askExit();return}
   backAt=now;toast('Нажмите «назад» ещё раз, чтобы закрыть приложение');
 });
 async function askExit(){
   const lk=document.body.classList.contains('locked');if(lk)document.body.classList.remove('locked');
   const ok=await ask('Закрыть приложение?','Закрыть');
   if(lk)applyLock();
-  if(ok){exiting=true;history.back()}
+  if(ok){exiting=true;hIdx=histIdx();if(hIdx>0)history.go(-hIdx);else history.back()}
 }
 try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(e){}
 if('serviceWorker' in navigator&&location.protocol!=='file:'){
