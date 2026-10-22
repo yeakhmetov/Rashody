@@ -157,7 +157,8 @@ body.selmode nav.tabs{visibility:hidden}
 #s-home{padding-bottom:70px}
 .legend-row em{font-style:normal;color:var(--muted);font-size:12.5px;width:36px;text-align:right}
 .fab{position:fixed;right:max(18px,calc((100vw - 560px)/2 + 18px));bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:12;width:62px;height:62px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);font:400 34px/1 var(--body);box-shadow:0 6px 18px rgba(8,40,32,.28);display:none;align-items:center;justify-content:center}
-body.on-home .fab{display:flex}
+body:not(.on-add):not(.selmode) .fab{display:flex}
+body:not(.on-add) main{padding-bottom:calc(160px + env(safe-area-inset-bottom,0px))}
 /* tabbar */
 nav.tabs{position:fixed;left:0;right:0;bottom:0;z-index:10;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
 nav.tabs .in2{max-width:560px;margin:0 auto;display:flex}
@@ -319,7 +320,7 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <h2>Хранение</h2>
       <p class="muted" id="storeState" style="margin-top:0"></p>
       <button class="btn danger small" id="wipe">Удалить все записи</button>
-      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>16.10.2026 (16)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
+      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>21.10.2026 (17)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
       <p class="muted" style="margin:6px 0 0">«Обновить» загружает свежую версию с сервера. Записи при этом не затрагиваются.</p>
     </div>
   </section>
@@ -589,10 +590,11 @@ const sigBefore=(el)=>{const p=el.selectionStart??el.value.length;return el.valu
 $('#amt').addEventListener('input',e=>setAmt(e.target.value,sigBefore(e.target)));
 $('#calc').addEventListener('pointerdown',e=>{if(e.target.closest('button'))e.preventDefault()});
 $('#calc').addEventListener('click',e=>{const b=e.target.closest('[data-op]');if(!b)return;const el=$('#amt'),op=b.dataset.op;
-  const st0=el.selectionStart??el.value.length,en0=el.selectionEnd??el.value.length,v=el.value;
+  const v=el.value,focused=document.activeElement===el;
+  const st0=focused?(el.selectionStart??v.length):v.length,en0=focused?(el.selectionEnd??v.length):v.length;
   if(op==='='){const n=evalAmt(v);if(isFinite(n)&&n>0)setAmt(String(n).replace('.',','),null);else toast('Проверьте выражение');return}
   if(op==='⌫'){if(st0!==en0){setAmt(v.slice(0,st0)+v.slice(en0),v.slice(0,st0).replace(/ /g,'').length)}else if(st0>0){let a=st0-1;while(a>0&&v[a]===' ')a--;setAmt(v.slice(0,a)+v.slice(st0),v.slice(0,a).replace(/ /g,'').length)}return}
-  const nv=v.slice(0,st0)+op+v.slice(en0);setAmt(nv,(v.slice(0,st0)+op).replace(/ /g,'').length);
+  const nv=v.slice(0,st0)+op+v.slice(en0);if(!focused){try{el.focus({preventScroll:true})}catch(e){el.focus()}}setAmt(nv,(v.slice(0,st0)+op).replace(/ /g,'').length);
 });
 $('#saveBtn').onclick=()=>{
   const a=evalAmt($('#amt').value);
@@ -864,7 +866,7 @@ function go(s,fromBack){
   document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id==='s-'+s));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.s===s));
   $('#title').textContent=s==='add'&&editing?'Правка траты':s==='home'?MONTHS_NOM[new Date().getMonth()]+' '+new Date().getFullYear():TITLES[s];
-  document.body.classList.toggle('on-home',s==='home');$('#todaySum').hidden=s==='home';
+  document.body.classList.toggle('on-home',s==='home');document.body.classList.toggle('on-add',s==='add');$('#todaySum').hidden=s==='home';
   if(s==='home')renderHome();
   try{sessionStorage.setItem('rsh-screen',s)}catch(e){}
   if(s==='stats')renderStats();if(s==='list')renderList();
