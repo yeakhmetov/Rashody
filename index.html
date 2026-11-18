@@ -40,6 +40,18 @@ header.top{align-items:center}
 .hdr-r{display:flex;align-items:center;gap:6px}
 .eye{border:0;background:none;color:var(--muted);width:40px;height:40px;margin:-8px -8px -8px 0;display:grid;place-items:center;border-radius:50%}
 .eye:active{background:var(--soft)}
+.rec-bar{display:flex;width:100%;align-items:center;gap:10px;border:1px solid var(--hi);background:color-mix(in srgb,var(--hi) 14%,var(--card));border-radius:14px;padding:10px 12px;margin-bottom:10px;text-align:left;font-size:14px;color:var(--ink)}
+.rec-bar[hidden]{display:none}
+.rec-bar b{font-size:18px}.rec-bar span{flex:1}
+.ritem{border-top:1px solid var(--line);padding:10px 0}
+.ritem:first-of-type{border-top:0}
+.ritem .h{display:flex;justify-content:space-between;gap:8px;font-size:14.5px}
+.ritem .btns{margin-top:8px}
+.lrow{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-top:1px solid var(--line);padding:10px 2px;font-size:14.5px}
+.lrow:first-child{border-top:0}
+.lrow .nm{flex:1;min-width:0}.lrow small{display:block;color:var(--muted);font-size:12.5px}
+#copyTop{color:var(--accent)}
+#copyTop[hidden]{display:none}
 header.top h1{font:700 20px/1.1 var(--display);margin:0;letter-spacing:-.01em}
 header.top .sub{color:var(--muted);font-size:13px}
 .screen{display:none}.screen.on{display:block}
@@ -215,10 +227,11 @@ html.prelock #lock,html.cloak #lock{display:flex}
 </div>
 
 <div class="app">
-<header class="top"><h1 id="title">Новая трата</h1><div class="hdr-r"><span class="sub num" id="todaySum"></span><button class="eye" id="eyeBtn" aria-label="Скрыть суммы"></button></div></header>
+<header class="top"><h1 id="title">Новая трата</h1><div class="hdr-r"><span class="sub num" id="todaySum"></span><button class="eye" id="copyTop" hidden aria-label="Новая трата на основе этой" title="Новая трата на основе этой"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg></button><button class="eye" id="eyeBtn" aria-label="Скрыть суммы"></button></div></header>
 <main>
   <!-- ADD -->
   <section class="screen on" id="s-home">
+    <button class="rec-bar" id="recBar" hidden></button>
     <div class="card" style="padding:10px 12px 8px">
       <div class="donut" id="donut"></div>
       <div class="donut-sel" id="donutSel"></div>
@@ -232,6 +245,7 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <div class="amount"><input id="amt" class="num" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="Сумма"><span>₸</span></div>
       <div class="calc-res num" id="calcRes"></div>
       <div class="calc" id="calc"><button data-op="+">+</button><button data-op="−">−</button><button data-op="×">×</button><button data-op="÷">÷</button><button data-op="(">(</button><button data-op=")">)</button><button data-op="=" class="eq">=</button><button data-op="⌫" aria-label="Стереть">⌫</button></div>
+      <div id="tplWrap" hidden><p class="label" style="margin:12px 0 6px">Шаблоны</p><div class="recent" id="tpls"></div></div>
       <div id="recentWrap"><p class="label" style="margin:12px 0 6px">Часто используемые</p><div class="recent" id="recent"></div></div>
     </div>
     <div class="card">
@@ -251,7 +265,9 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <label class="field"><span class="label">Проект (необязательно)</span><input id="fProject" list="projList" placeholder="Например: Ремонт 2026" autocomplete="off"></label>
       <datalist id="projList"></datalist>
       <button class="btn wide" id="saveBtn">Сохранить трату</button>
+      <div class="btns" style="margin-top:8px"><button class="btn ghost small" id="asTpl" style="flex:1">☆ Сохранить как шаблон</button><button class="btn ghost small" id="asRec" style="flex:1">↻ Сделать регулярной</button></div>
       <div class="btns" id="editBtns" hidden style="margin-top:8px">
+        <button class="btn ghost small" id="copyBtn" style="flex:1 1 100%"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h2"/></svg>Новая трата на основе этой</button>
         <button class="btn ghost small" id="cancelEdit" style="flex:1">Отменить правку</button>
         <button class="btn danger small" id="delBtn" style="flex:1">Удалить</button>
       </div>
@@ -307,6 +323,16 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <input type="file" id="impFile" accept=".json,.csv,.txt,text/csv,text/plain,application/json" hidden>
     </div>
     <div class="card">
+      <h2>Шаблоны</h2>
+      <p class="muted" style="margin:0 0 6px">Появляются на экране ввода траты: одно касание подставляет сумму, категорию, комментарий и проект. Создаются кнопкой «Сохранить как шаблон» на экране траты.</p>
+      <div id="tplList"></div>
+    </div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><h2 style="margin:0">Регулярные платежи</h2><button class="btn ghost small" id="addRec">+ Платёж</button></div>
+      <p class="muted" style="margin:0 0 6px">В день платежа на главном экране появится напоминание, и трата вносится одним касанием.</p>
+      <div id="recList"></div>
+    </div>
+    <div class="card">
       <h2>Анализ</h2>
       <label class="field" style="margin-top:0"><span class="label">Порог крупной разовой траты, ₸</span><input id="thr" class="num" inputmode="numeric"></label>
       <p class="muted">Траты от этой суммы и траты с проектом не попадают в «Текущие», чтобы крупные события не размывали картину обычного месяца.</p>
@@ -320,7 +346,7 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <h2>Хранение</h2>
       <p class="muted" id="storeState" style="margin-top:0"></p>
       <button class="btn danger small" id="wipe">Удалить все записи</button>
-      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>21.10.2026 (17)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
+      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>18.11.2026 (19)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
       <p class="muted" style="margin:6px 0 0">«Обновить» загружает свежую версию с сервера. Записи при этом не затрагиваются.</p>
     </div>
   </section>
@@ -334,7 +360,7 @@ html.prelock #lock,html.cloak #lock{display:flex}
 </div></nav>
 </div>
 
-<div class="selbar" id="selBar"><div class="in3"><div class="info"><b id="selCount"></b><span class="muted num" id="selSum"></span></div><button class="btn ghost small" id="selCancel">Отмена</button><button class="btn small" id="selDel" style="background:var(--warn);color:#fff">Удалить</button></div></div>
+<div class="selbar" id="selBar"><div class="in3"><div class="info"><b id="selCount"></b><span class="muted num" id="selSum"></span></div><button class="btn ghost small" id="selRep">Повторить</button><button class="btn ghost small" id="selCancel" aria-label="Отмена">✕</button><button class="btn small" id="selDel" style="background:var(--warn);color:#fff">Удалить</button></div></div>
 <button class="fab" id="fab" aria-label="Добавить трату">+</button>
 <div class="sheet-bg" id="sheetBg"><div class="sheet" id="sheet"></div></div>
 <div class="toast" id="toast" role="status"></div>
@@ -389,7 +415,7 @@ const lsGet=k=>{try{return localStorage.getItem(k)}catch(e){return null}};
 const lsSet=(k,v)=>{try{localStorage.setItem(k,v)}catch(e){}};
 const lsDel=k=>{try{localStorage.removeItem(k)}catch(e){}};
 function toast(t){const e=$('#toast');e.textContent=t;e.classList.add('on');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('on'),2200)}
-function sheet(html){$('#sheet').innerHTML=html;$('#sheetBg').classList.add('on')}
+function sheet(html){$('#sheet').onclick=null;$('#sheet').innerHTML=html;$('#sheetBg').classList.add('on')}
 function closeSheet(){$('#sheetBg').classList.remove('on')}
 function cancelSheet(){if(askRes){const r=askRes;askRes=null;r(false)}closeSheet()}
 $('#sheetBg').addEventListener('click',e=>{if(e.target.id==='sheetBg')closeSheet()});
@@ -397,7 +423,7 @@ let askRes=null;
 function ask(text,ok='Да',danger){return new Promise(res=>{askRes=res;sheet(`<h2>${esc(text)}</h2><div class="btns" style="margin-top:14px"><button class="btn ghost" id="aNo" style="flex:1">Отмена</button><button class="btn ${danger?'danger':''}" id="aYes" style="flex:1">${esc(ok)}</button></div>`);$('#aNo').onclick=()=>{closeSheet();res(false)};$('#aYes').onclick=()=>{closeSheet();res(true)}})}
 
 /* ---------- state & storage ---------- */
-const defaults=()=>({autoLock:60,bigThreshold:300000,customSubs:{},projects:[],lock:null});
+const defaults=()=>({templates:[],recurring:[],autoLock:60,bigThreshold:300000,customSubs:{},projects:[],lock:null});
 let months={};let settings=defaults();
 let mode='local',db=null,col=null,serverReady=false;
 (()=>{try{const c=JSON.parse(lsGet('rsh-data')||'null');if(c){months=c.months||{};settings=Object.assign(defaults(),c.settings||{})}}catch(e){}})();
@@ -544,7 +570,7 @@ function resetForm(keepDate){
   $('#amt').value='';$('#amt').classList.remove('long');$('#calcRes').textContent='';$('#fComment').value='';$('#fProject').value='';
   if(!keepDate){$('#fDate').value=ymd(new Date())}
   const n=new Date();$('#fTime').value=pad2(n.getHours())+':'+pad2(n.getMinutes());
-  form={g:null,s:null};editing=null;
+  form={g:null,s:null};editing=null;recMark=null;
   $('#editBtns').hidden=true;$('#saveBtn').textContent='Сохранить трату';$('#title').textContent='Новая трата';
   drawGroups();
 }
@@ -607,6 +633,7 @@ $('#saveBtn').onclick=()=>{
   const k=d.slice(0,7);(months[k]=months[k]||[]).push(it);keys.add(k);
   if(it.p&&!settings.projects.includes(it.p)){settings.projects.push(it.p);keys.add('settings')}
   touch(...keys);
+  if(!editing&&recMark){markRec(recMark.id,recMark.m)}
   const was=!!editing;
   toast((was?'Изменено: ':'Сохранено: ')+money(a)+', '+G[it.g].n);
   resetForm(true);renderAll();
@@ -618,8 +645,18 @@ function editItem(id){
   setAmt(String(it.a).replace('.',','),null);
   $('#fDate').value=it.d;$('#fTime').value=it.t||'';$('#fComment').value=it.c||'';$('#fProject').value=it.p||'';
   $('#editBtns').hidden=false;$('#saveBtn').textContent='Сохранить изменения';
-  drawGroups();go('add');$('#title').textContent='Правка траты';
+  drawGroups();go('add');$('#title').textContent='Правка траты';$('#copyTop').hidden=false;
 }
+$('#copyBtn').onclick=()=>{
+  if(!editing)return;
+  // всё остаётся как в исходной трате, кроме даты и времени — они текущие
+  editing=null;const n=new Date();
+  $('#fDate').value=ymd(n);$('#fTime').value=pad2(n.getHours())+':'+pad2(n.getMinutes());
+  $('#editBtns').hidden=true;$('#copyTop').hidden=true;$('#saveBtn').textContent='Сохранить трату';$('#title').textContent='Новая трата';
+  drawGroups();drawTpls();saveDraft();window.scrollTo(0,0);
+  toast('Скопировано. Проверьте сумму и нажмите «Сохранить трату»');
+};
+$('#copyTop').onclick=()=>$('#copyBtn').click();
 $('#cancelEdit').onclick=()=>{resetForm();go('list')};
 $('#delBtn').onclick=async()=>{if(!editing)return;if(!(await ask('Удалить эту трату?','Удалить',true)))return;const k=editing.d.slice(0,7);months[k]=(months[k]||[]).filter(x=>x.id!==editing.id);touch(k);resetForm();renderAll();go('list');toast('Трата удалена')};
 function drawRecent(){
@@ -661,7 +698,7 @@ function refreshSel(){
   const all=allItems().filter(x=>selIds.has(x.id));const n=all.length;
   $('#selCount').textContent='Выбрано: '+n+' '+plural(n,'запись','записи','записей');
   $('#selSum').textContent=n?'на сумму '+money(all.reduce((s,x)=>s+x.a,0)):'Нажимайте на записи, чтобы выбрать';
-  $('#selDel').disabled=!n;$('#selDel').style.opacity=n?1:.5;
+  $('#selDel').disabled=!n;$('#selDel').style.opacity=n?1:.5;$('#selRep').hidden=n!==1;
 }
 function exitSel(){selMode=false;selIds.clear();refreshSel()}
 function toggleSel(id){selIds.has(id)?selIds.delete(id):selIds.add(id);if(!selIds.size){exitSel();return}refreshSel()}
@@ -676,6 +713,7 @@ document.addEventListener('click',e=>{const b=e.target.closest('.item[data-id]')
   if(selMode){toggleSel(b.dataset.id);return}
   editItem(b.dataset.id)});
 $('#selCancel').onclick=exitSel;
+$('#selRep').onclick=()=>{const it=allItems().find(x=>selIds.has(x.id));if(!it)return;exitSel();fillForm(it);go('add');toast('Скопировано. Проверьте сумму и нажмите «Сохранить трату»')};
 $('#selDel').onclick=async()=>{
   const n=selIds.size;if(!n)return;
   if(!(await ask('Удалить '+n+' '+plural(n,'запись','записи','записей')+'? Это нельзя отменить.','Удалить',true)))return;
@@ -817,7 +855,7 @@ function toCSV(items){
   return'\ufeff'+rows.map(r=>r.map(cell).join(';')).join('\r\n');
 }
 $('#expCsv').onclick=()=>{const it=allItems();if(!it.length)return toast('Записей пока нет');download(`rashody_${ymd(new Date())}.csv`,toCSV(it))};
-$('#expJson').onclick=()=>{const it=allItems();if(!it.length)return toast('Записей пока нет');const s={bigThreshold:settings.bigThreshold,cats:GROUPS,projects:settings.projects};settings.lastBackup=new Date().toISOString();saveLocal();setMode();download(`rashody_backup_${ymd(new Date())}.json`,JSON.stringify({app:'rashody',version:1,exported:new Date().toISOString(),groups:GROUPS.map(g=>({id:g.id,name:g.n,subs:g.s})),settings:s,items:it},null,1))};
+$('#expJson').onclick=()=>{const it=allItems();if(!it.length)return toast('Записей пока нет');const s={bigThreshold:settings.bigThreshold,cats:GROUPS,projects:settings.projects,templates:settings.templates||[],recurring:settings.recurring||[]};settings.lastBackup=new Date().toISOString();saveLocal();setMode();download(`rashody_backup_${ymd(new Date())}.json`,JSON.stringify({app:'rashody',version:1,exported:new Date().toISOString(),groups:GROUPS.map(g=>({id:g.id,name:g.n,subs:g.s})),settings:s,items:it},null,1))};
 $('#impBtn').onclick=()=>$('#impFile').click();
 $('#impFile').onchange=async e=>{
   const f=e.target.files[0];e.target.value='';if(!f)return;
@@ -825,7 +863,7 @@ $('#impFile').onchange=async e=>{
   try{
     if(/^\s*[\[{]/.test(text)){const j=JSON.parse(text);items=Array.isArray(j)?j:(j.items||[]);if(j.settings){
       (j.settings.cats||[]).forEach(ig=>{if(!ig||!ig.id)return;const g=G[ig.id];if(!g)GROUPS.push({id:ig.id,n:ig.n||'Группа',e:ig.e||'📁',c:ig.c||'#8A8F8C',s:[...(ig.s||[])]});else(ig.s||[]).forEach(x=>g.s.includes(x)||g.s.push(x))});
-      rebuildCats();const cs=j.settings.customSubs||{};for(const gid in cs){if(G[gid])cs[gid].forEach(x=>G[gid].s.includes(x)||G[gid].s.push(x))}(j.settings.projects||[]).forEach(p=>settings.projects.includes(p)||settings.projects.push(p))}}
+      rebuildCats();const cs=j.settings.customSubs||{};for(const gid in cs){if(G[gid])cs[gid].forEach(x=>G[gid].s.includes(x)||G[gid].s.push(x))}(j.settings.projects||[]).forEach(p=>settings.projects.includes(p)||settings.projects.push(p));['templates','recurring'].forEach(k=>{const cur=settings[k]||(settings[k]=[]);(j.settings[k]||[]).forEach(x=>{if(x&&x.id&&!cur.some(y=>y.id===x.id))cur.push(x)})})}}
     else items=parseCSV(text);
   }catch(err){return toast('Не удалось прочитать файл')}
   items=items.filter(x=>x&&x.d&&x.a>0);
@@ -865,9 +903,11 @@ function go(s,fromBack){
   curScr=s;
   document.querySelectorAll('.screen').forEach(x=>x.classList.toggle('on',x.id==='s-'+s));
   document.querySelectorAll('nav.tabs button').forEach(b=>b.setAttribute('aria-selected',b.dataset.s===s));
+  $('#copyTop').hidden=!(s==='add'&&editing);
   $('#title').textContent=s==='add'&&editing?'Правка траты':s==='home'?MONTHS_NOM[new Date().getMonth()]+' '+new Date().getFullYear():TITLES[s];
   document.body.classList.toggle('on-home',s==='home');document.body.classList.toggle('on-add',s==='add');$('#todaySum').hidden=s==='home';
   if(s==='home')renderHome();
+  if(s==='add')drawTpls();
   try{sessionStorage.setItem('rsh-screen',s)}catch(e){}
   if(s==='stats')renderStats();if(s==='list')renderList();
   window.scrollTo(0,0);
@@ -875,6 +915,7 @@ function go(s,fromBack){
 document.querySelector('nav.tabs').addEventListener('click',e=>{const b=e.target.closest('[data-s]');if(b){if(b.dataset.s!=='add'&&editing)resetForm();go(b.dataset.s)}});
 let homeSel=null;
 function renderHome(){
+  drawRecBar();
   const now=new Date(),mk=ymd(now).slice(0,7),today=ymd(now);
   const items=(months[mk]||[]);
   const total=items.reduce((s,x)=>s+x.a,0),todayT=items.filter(x=>x.d===today).reduce((s,x)=>s+x.a,0);
@@ -899,6 +940,131 @@ function renderHome(){
 $('#donut').addEventListener('click',e=>{const c=e.target.closest('.seg');homeSel=c&&homeSel!==c.dataset.g?c.dataset.g:null;renderHome()});
 $('#legend').addEventListener('click',e=>{const b=e.target.closest('[data-lg]');if(!b)return;st.g=b.dataset.lg;st.s='';st.period='month';st.mode='all';go('stats')});
 $('#fab').onclick=()=>{resetForm();go('add');setTimeout(()=>$('#amt').focus(),50)};
+/* ---------- общие помощники для новой траты ---------- */
+let recMark=null;
+const MGEN_=['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+const dLong=d=>{const x=pd(d);return x.getDate()+' '+MGEN_[x.getMonth()]};
+function curForm(){const a=evalAmt($('#amt').value);return{a:a>0?a:0,g:form.g,s:form.s||'',c:$('#fComment').value.trim(),p:$('#fProject').value.trim()}}
+function fillForm(src,opt={}){
+  resetForm();
+  if(src.a)setAmt(String(src.a).replace('.',','),null);
+  form={g:G[src.g]?src.g:null,s:src.s||null};
+  $('#fComment').value=src.c||'';$('#fProject').value=src.p||'';
+  if(opt.d)$('#fDate').value=opt.d;
+  drawGroups();saveDraft();
+}
+const amtTxt=a=>a>0?money(a):'без суммы';
+
+/* ---------- шаблоны ---------- */
+function drawTpls(){
+  const t=settings.templates||[],show=t.length&&!editing;
+  $('#tplWrap').hidden=!show;if(!show)return;
+  $('#tpls').innerHTML=t.map(x=>`<button data-tp="${x.id}">${G[x.g]?.e||'📁'} ${esc(x.name)}${x.a>0?' · '+money(x.a):''}</button>`).join('');
+}
+$('#tpls').addEventListener('click',e=>{const b=e.target.closest('[data-tp]');if(!b)return;const t=(settings.templates||[]).find(x=>x.id===b.dataset.tp);if(!t)return;fillForm(t);drawTpls();toast('Шаблон «'+t.name+'» подставлен')});
+$('#asTpl').onclick=()=>{
+  if(!form.g)return toast('Сначала выберите группу');
+  const f=curForm(),def=f.c||f.s||G[f.g].n;
+  sheet(`<h2>Сохранить как шаблон</h2><p class="muted">${G[f.g].e} ${esc(f.s||G[f.g].n)} · ${amtTxt(f.a)}${f.c?' · '+esc(f.c):''}${f.p?' · '+esc(f.p):''}</p>
+   <label class="field"><span class="label">Название шаблона</span><input id="tpN" value="${esc(def)}" autocomplete="off"></label>
+   <div class="btns" style="margin-top:14px"><button class="btn ghost" id="tpNo" style="flex:1">Отмена</button><button class="btn" id="tpOk" style="flex:1">Сохранить</button></div>`);
+  $('#tpNo').onclick=closeSheet;
+  $('#tpOk').onclick=()=>{const n=$('#tpN').value.trim();if(!n)return toast('Введите название');(settings.templates=settings.templates||[]).push({id:uid(),name:n,...f});touch('settings');closeSheet();drawTpls();renderTplList();toast('Шаблон сохранён')};
+};
+function renderTplList(){
+  const t=settings.templates||[];
+  $('#tplList').innerHTML=t.length?t.map(x=>`<button class="lrow" data-te="${x.id}"><span>${G[x.g]?.e||'📁'}</span><span class="nm">${esc(x.name)}<small>${esc(x.s||G[x.g]?.n||'')}${x.c?' · '+esc(x.c):''}${x.p?' · '+esc(x.p):''}</small></span><b class="num">${amtTxt(x.a)}</b></button>`).join(''):'<p class="muted">Шаблонов пока нет.</p>';
+}
+$('#tplList').addEventListener('click',e=>{const b=e.target.closest('[data-te]');if(!b)return;const t=(settings.templates||[]).find(x=>x.id===b.dataset.te);if(!t)return;
+  sheet(`<h2>Шаблон</h2><p class="muted">${G[t.g]?.e||''} ${esc(t.s||G[t.g]?.n||'')}${t.c?' · '+esc(t.c):''}${t.p?' · '+esc(t.p):''}</p>
+   <label class="field"><span class="label">Название</span><input id="teN" value="${esc(t.name)}" autocomplete="off"></label>
+   <label class="field"><span class="label">Сумма, ₸ (можно оставить пустой)</span><input id="teA" class="num" inputmode="decimal" value="${t.a>0?String(t.a).replace('.',','):''}" autocomplete="off"></label>
+   <div class="btns" style="margin-top:14px"><button class="btn danger" id="teDel" style="flex:1">Удалить</button><button class="btn" id="teOk" style="flex:1">Сохранить</button></div>`);
+  $('#teOk').onclick=()=>{const n=$('#teN').value.trim();if(!n)return toast('Введите название');const v=$('#teA').value.trim(),a=v?evalAmt(v.replace(/\s/g,'')):0;if(v&&!(a>0))return toast('Проверьте сумму');t.name=n;t.a=a||0;touch('settings');closeSheet();renderAll();toast('Шаблон сохранён')};
+  $('#teDel').onclick=async()=>{closeSheet();if(!(await ask('Удалить шаблон «'+t.name+'»?','Удалить',true)))return;settings.templates=settings.templates.filter(x=>x!==t);touch('settings');renderAll();toast('Шаблон удалён')};
+});
+
+/* ---------- регулярные платежи ---------- */
+const ymOf=d=>d.slice(0,7);
+function monthsBetween(a,b){const out=[];let [y,m]=a.split('-').map(Number);const [y2,m2]=b.split('-').map(Number);while(y<y2||(y===y2&&m<=m2)){out.push(y+'-'+pad2(m));m++;if(m>12){m=1;y++}}return out}
+function recDue(r,m){const [y,mo]=m.split('-').map(Number);const last=new Date(y,mo,0).getDate();return m+'-'+pad2(Math.min(r.day,last))}
+function recEntered(r,m){return(months[m]||[]).some(x=>x.g===r.g&&(x.s||'')===(r.s||'')&&(Math.abs(x.a-r.a)<0.01||(r.c&&x.c===r.c)))}
+function recPending(){
+  const now=new Date(),today=ymd(now),cur=ymOf(today),from3=ymOf(ymd(new Date(now.getFullYear(),now.getMonth()-2,1)));const out=[];
+  (settings.recurring||[]).forEach(r=>{
+    const start=(r.from||cur)>from3?(r.from||cur):from3;if(start>cur)return;
+    monthsBetween(start,cur).forEach(m=>{
+      if(r.to&&m>r.to)return;if((r.done||[]).includes(m))return;
+      const due=recDue(r,m);if(due>today)return;if(recEntered(r,m))return;
+      out.push({r,m,due})})});
+  return out.sort((a,b)=>a.due.localeCompare(b.due));
+}
+function recNext(r){
+  const today=ymd(new Date());let m=ymOf(today);if((r.from||m)>m)m=r.from;
+  for(let i=0;i<24;i++){if(r.to&&m>r.to)return null;const due=recDue(r,m);if(!(r.done||[]).includes(m)&&!recEntered(r,m)&&due>=today)return due;const [y,mo]=m.split('-').map(Number);m=mo===12?(y+1)+'-01':y+'-'+pad2(mo+1)}
+  return null;
+}
+function markRec(id,m){const r=(settings.recurring||[]).find(x=>x.id===id);if(!r)return;r.done=r.done||[];if(!r.done.includes(m))r.done.push(m);r.done=r.done.sort().slice(-24);touch('settings')}
+function drawRecBar(){
+  const p=recPending(),b=$('#recBar');b.hidden=!p.length;if(!p.length)return;
+  const sum=p.reduce((s,x)=>s+x.r.a,0);
+  b.innerHTML=`<b>🔔</b><span>${p.length===1?'Платёж к внесению: '+esc(p[0].r.n):'Платежей к внесению: '+p.length}<br><small class="muted num">${money(sum)}</small></span><b>›</b>`;
+}
+$('#recBar').onclick=()=>openPending();
+function addFromRec(r,m,due){
+  const it={id:uid(),d:due,t:'',a:r.a,g:G[r.g]?r.g:GF().id,s:r.s||'',c:r.c||'',p:r.p||'',ts:Date.now()};
+  const k=ymOf(due);(months[k]=months[k]||[]).push(it);
+  if(it.p&&!settings.projects.includes(it.p))settings.projects.push(it.p);
+  markRec(r.id,m);touch(k);
+}
+function openPending(){
+  const p=recPending();if(!p.length){closeSheet();renderAll();return}
+  sheet(`<h2>Платежи к внесению</h2>${p.length>1?`<button class="btn wide" id="rpAll" style="margin:0 0 6px">Внести все (${p.length}) · ${money(p.reduce((s,x)=>s+x.r.a,0))}</button>`:''}
+   ${p.map((x,i)=>`<div class="ritem"><div class="h"><span>${G[x.r.g]?.e||''} <b>${esc(x.r.n)}</b></span><b class="num">${money(x.r.a)}</b></div><div class="muted">${esc(x.r.s||G[x.r.g]?.n||'')} · срок ${dLong(x.due)}</div>
+   <div class="btns"><button class="btn small" data-rp="add" data-i="${i}" style="flex:1">Внести</button><button class="btn ghost small" data-rp="edit" data-i="${i}" style="flex:1">Изменить</button><button class="btn ghost small" data-rp="skip" data-i="${i}" style="flex:1">Пропустить</button></div></div>`).join('')}`);
+  $('#sheet').onclick=e=>{const b=e.target.closest('[data-rp]');if(!b)return;const x=p[Number(b.dataset.i)];
+    if(b.dataset.rp==='add'){addFromRec(x.r,x.m,x.due);toast('Внесено: '+x.r.n+', '+money(x.r.a));renderAll();openPending()}
+    else if(b.dataset.rp==='skip'){markRec(x.r.id,x.m);toast('Пропущено до следующего месяца');renderAll();openPending()}
+    else{$('#sheet').onclick=null;closeSheet();fillForm(x.r,{d:x.due});recMark={id:x.r.id,m:x.m};go('add');toast('Поправьте сумму и сохраните')}};
+  const all=$('#rpAll');if(all)all.onclick=e=>{e.stopPropagation();p.forEach(x=>addFromRec(x.r,x.m,x.due));toast('Внесено платежей: '+p.length);$('#sheet').onclick=null;closeSheet();renderAll()};
+}
+const _closeSheet=closeSheet;closeSheet=function(){$('#sheet').onclick=null;_closeSheet()};
+function renderRecList(){
+  const r=settings.recurring||[];
+  $('#recList').innerHTML=r.length?r.map(x=>{const nx=recNext(x);return `<button class="lrow" data-re="${x.id}"><span>${G[x.g]?.e||'📁'}</span><span class="nm">${esc(x.n)}<small>каждое ${x.day}-е число${nx?' · следующий '+dLong(nx):(x.to&&ymOf(ymd(new Date()))>x.to?' · завершён':'')}${x.to?' · до '+MONTHS_NOM[Number(x.to.slice(5))-1].toLowerCase()+' '+x.to.slice(0,4):''}</small></span><b class="num">${money(x.a)}</b></button>`}).join(''):'<p class="muted">Регулярных платежей пока нет.</p>';
+}
+$('#recList').addEventListener('click',e=>{const b=e.target.closest('[data-re]');if(b)recEditor((settings.recurring||[]).find(x=>x.id===b.dataset.re))});
+$('#addRec').onclick=()=>recEditor(null,{});
+$('#asRec').onclick=()=>{if(!form.g)return toast('Сначала выберите группу');const f=curForm();recEditor(null,{...f,day:pd($('#fDate').value||ymd(new Date())).getDate()})};
+function recEditor(r,preset){
+  const isNew=!r;const x=r||Object.assign({n:'',a:0,g:GROUPS[0].id,s:'',c:'',p:'',day:new Date().getDate(),from:ymOf(ymd(new Date())),to:''},preset||{});
+  if(isNew&&!x.n)x.n=x.c||x.s||(G[x.g]?.n||'');
+  const subOpts=g=>'<option value="">Без уточнения</option>'+subsOf(g).map(v=>`<option ${v===x.s?'selected':''}>${esc(v)}</option>`).join('');
+  sheet(`<h2>${isNew?'Новый регулярный платёж':'Регулярный платёж'}</h2>
+   <label class="field"><span class="label">Название</span><input id="rN" value="${esc(x.n)}" autocomplete="off" placeholder="Например: Кредит"></label>
+   <div class="row"><label class="field"><span class="label">Сумма, ₸</span><input id="rA" class="num" inputmode="decimal" value="${x.a>0?String(x.a).replace('.',','):''}" autocomplete="off"></label>
+   <label class="field" style="flex:.6"><span class="label">День месяца</span><input id="rD" class="num" type="number" min="1" max="31" value="${x.day}"></label></div>
+   <label class="field"><span class="label">Группа</span><select id="rG">${GROUPS.map(g=>`<option value="${g.id}" ${g.id===x.g?'selected':''}>${g.e} ${esc(g.n)}</option>`).join('')}</select></label>
+   <label class="field"><span class="label">Категория</span><select id="rS">${subOpts(x.g)}</select></label>
+   <label class="field"><span class="label">Комментарий</span><input id="rC" value="${esc(x.c)}" autocomplete="off"></label>
+   <label class="field"><span class="label">Проект (необязательно)</span><input id="rP" value="${esc(x.p)}" list="projList" autocomplete="off"></label>
+   <div class="row"><label class="field"><span class="label">Начиная с</span><input id="rF" type="month" value="${x.from||''}"></label>
+   <label class="field"><span class="label">Последний месяц</span><input id="rT" type="month" value="${x.to||''}"></label></div>
+   <p class="muted" style="margin:6px 0 0">«Последний месяц» можно не заполнять. Для рассрочки укажите месяц последнего платежа.</p>
+   <div class="btns" style="margin-top:14px">${isNew?'<button class="btn ghost" id="rNo" style="flex:1">Отмена</button>':'<button class="btn danger" id="rDel" style="flex:1">Удалить</button>'}<button class="btn" id="rOk" style="flex:1">Сохранить</button></div>`);
+  $('#rG').onchange=e=>{x.s='';$('#rS').innerHTML=subOpts(e.target.value)};
+  if(isNew)$('#rNo').onclick=closeSheet;
+  else $('#rDel').onclick=async()=>{closeSheet();if(!(await ask('Удалить регулярный платёж «'+r.n+'»? Уже внесённые траты останутся.','Удалить',true)))return;settings.recurring=settings.recurring.filter(y=>y!==r);touch('settings');renderAll();toast('Платёж удалён')};
+  $('#rOk').onclick=()=>{
+    const n=$('#rN').value.trim(),a=evalAmt($('#rA').value.replace(/\s/g,'')),day=Math.round(Number($('#rD').value));
+    if(!n)return toast('Введите название');if(!(a>0))return toast('Введите сумму');if(!(day>=1&&day<=31))return toast('День месяца — от 1 до 31');
+    const from=$('#rF').value||ymOf(ymd(new Date())),to=$('#rT').value||'';if(to&&to<from)return toast('Последний месяц раньше первого');
+    const v={n,a,day,g:$('#rG').value,s:$('#rS').value,c:$('#rC').value.trim(),p:$('#rP').value.trim(),from,to};
+    if(isNew)(settings.recurring=settings.recurring||[]).push({id:uid(),done:[],...v});else Object.assign(r,v);
+    touch('settings');closeSheet();renderAll();toast(isNew?'Регулярный платёж добавлен':'Сохранено');
+  };
+}
+
 /* ---------- редактор классификации ---------- */
 const PALETTE=['#2F8F6B','#C9782E','#8C5CB8','#3B6FB6','#5E7D3A','#D05A7E','#2E7DA8','#C0433A','#9A7B2C','#4C8C99','#6E6A5E','#B8528F','#4A5A7A','#7A4A3A','#8A8F8C','#1F7A7A'];
 function countBy(){const c={};allItems().forEach(x=>{c[x.g]=(c[x.g]||0)+1;const k=x.g+'|'+(x.s||'');c[k]=(c[k]||0)+1});return c}
@@ -985,7 +1151,7 @@ function renderAll(){
   $('#todaySum').textContent=ts?'Сегодня '+money(ts):'';
   $('#projList').innerHTML=settings.projects.map(p=>`<option value="${esc(p)}">`).join('');
   $('#thr').value=Math.round(settings.bigThreshold).toLocaleString('ru-RU');
-  drawRecent();renderCatRef();
+  drawRecent();renderCatRef();drawTpls();renderTplList();renderRecList();
   if($('#s-home').classList.contains('on'))renderHome();
   if($('#s-list').classList.contains('on'))renderList();
   if($('#s-stats').classList.contains('on'))renderStats();
