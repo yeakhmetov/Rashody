@@ -346,7 +346,7 @@ html.prelock #lock,html.cloak #lock{display:flex}
       <h2>Хранение</h2>
       <p class="muted" id="storeState" style="margin-top:0"></p>
       <button class="btn danger small" id="wipe">Удалить все записи</button>
-      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>18.11.2026 (19)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
+      <div class="set-row" style="margin-top:10px"><div>Версия приложения<small>19.11.2026 (20)</small></div><button class="btn ghost small" id="updBtn">Обновить</button></div>
       <p class="muted" style="margin:6px 0 0">«Обновить» загружает свежую версию с сервера. Записи при этом не затрагиваются.</p>
     </div>
   </section>
@@ -674,7 +674,10 @@ $('#recent').addEventListener('click',e=>{const b=e.target.closest('button');if(
 
 /* ---------- list ---------- */
 let listLimit=150;
-function itemHTML(it){const g=G[it.g]||GF();return `<button class="item" data-id="${it.id}"><span class="ic" style="background:${g.c}22">${g.e}</span><span class="mid"><div class="t">${esc(it.s||g.n)}${it.p?`<span class="tag">${esc(it.p)}</span>`:''}</div><div class="s">${esc(it.c||g.n)}${it.t?', '+it.t:''}</div></span><span class="a num">${money(it.a)}</span></button>`}
+const MSH=['янв','фев','мар','апр','мая','июн','июл','авг','сен','окт','ноя','дек'];
+function shortDate(d){const x=pd(d);return x.getDate()+' '+MSH[x.getMonth()]+(x.getFullYear()!==new Date().getFullYear()?' '+x.getFullYear():'')}
+const itemD=it=>itemHTML(it,true);
+function itemHTML(it,withDate){const g=G[it.g]||GF();return `<button class="item" data-id="${it.id}"><span class="ic" style="background:${g.c}22">${g.e}</span><span class="mid"><div class="t">${esc(it.s||g.n)}${it.p?`<span class="tag">${esc(it.p)}</span>`:''}</div><div class="s">${esc(it.c||g.n)}${withDate===true?', '+shortDate(it.d):''}${it.t?', '+it.t:''}</div></span><span class="a num">${money(it.a)}</span></button>`}
 function renderList(){
   const q=$('#q').value.trim().toLowerCase();
   let items=allItems();
@@ -806,11 +809,11 @@ function renderStats(){
    <div class="chart-tip num" id="tip">Максимум: ${esc(buckets.find(x=>x.v===mx).full)}, ${money(mx)}. В среднем ${money(avgB)} ${byDay?'в день':'в месяц'}.</div></div>`;
   // top
   const top=[...sel].sort((x,y)=>y.a-x.a).slice(0,10);
-  html+=`<div class="card"><h2>Самые крупные траты</h2>${top.map(itemHTML).join('')}</div>`;
-  html+=`<div class="card"><h2>Все записи выборки</h2><div id="selList">${sel.slice(0,50).map(itemHTML).join('')}</div>${sel.length>50?`<button class="btn ghost wide" id="selMore">Показать все ${sel.length}</button>`:''}</div>`;
+  html+=`<div class="card"><h2>Самые крупные траты</h2>${top.map(itemD).join('')}</div>`;
+  html+=`<div class="card"><h2>Все записи выборки</h2><div id="selList">${sel.slice(0,50).map(itemD).join('')}</div>${sel.length>50?`<button class="btn ghost wide" id="selMore">Показать все ${sel.length}</button>`:''}</div>`;
   $('#results').innerHTML=html;refreshSel();
   $('#expSel').onclick=()=>download(`rashody_${a}_${b}.csv`,toCSV(sel));
-  const sm=$('#selMore');if(sm)sm.onclick=()=>{$('#selList').innerHTML=sel.map(itemHTML).join('');sm.remove();refreshSel()};
+  const sm=$('#selMore');if(sm)sm.onclick=()=>{$('#selList').innerHTML=sel.map(itemD).join('');sm.remove();refreshSel()};
   document.querySelectorAll('.chart .b').forEach(el=>el.onclick=()=>{document.querySelectorAll('.chart .b.sel').forEach(x=>x.classList.remove('sel'));el.classList.add('sel');const x=buckets[el.dataset.i];$('#tip').textContent=x.full+': '+money(x.v)});
   document.querySelectorAll('[data-og]').forEach(el=>el.onclick=()=>{const k=el.dataset.og;st.open[k]=!st.open[k];renderStats()});
 }
